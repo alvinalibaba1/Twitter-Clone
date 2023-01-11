@@ -6,10 +6,13 @@
 //
 
 import UIKit
+import Firebase
+import Combine
 
 class HomeViewController: UIViewController {
     
-    
+    private var viewModel = HomeViewViewModel()
+    private var subscriptions: Set<AnyCancellable> = []
     
     private func configureNavigationBar() {
         let size:CGFloat = 36
@@ -42,6 +45,13 @@ class HomeViewController: UIViewController {
         timelineTableView.delegate = self
         timelineTableView.dataSource = self
         configureNavigationBar()
+        navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "rectangle.portrait.and.arrow.right"), style: .plain, target: self, action: #selector(didTapSignOut))
+        bindViews()
+    }
+    
+    @objc private func didTapSignOut() {
+        try? Auth.auth().signOut()
+        handleAuthentication() 
     }
     
     override func viewDidLayoutSubviews() {
@@ -49,9 +59,36 @@ class HomeViewController: UIViewController {
         timelineTableView.frame = view.frame
     }
     
+    private func handleAuthentication() {
+        if Auth.auth().currentUser == nil {
+            let vc = UINavigationController(rootViewController: OnboardingViewController())
+            vc.modalPresentationStyle = .fullScreen
+            present(vc, animated: false)
+        }
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.navigationBar.isHidden = false
+        handleAuthentication()
+        viewModel.retriveUser()
+    }
+    
+    func completeUserOnBoarding() {
+        let vc = ProfileDataFormViewController()
+        present(vc, animated: true)
+    }
+    
+    func bindViews() {
+        viewModel.$user.sink { [weak self] user in
+            guard let user = user else {return}
+            if !user.isUserOnBoarded {
+                self?.completeUserOnBoarding()
+            }
+        }
+        
+        .store(in: &subscriptions)
+        
     }
     
 
